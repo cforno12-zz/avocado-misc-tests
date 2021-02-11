@@ -56,10 +56,10 @@ class LPM(Test):
         self.hmc_pwd = self.params.get("hmc_pwd", '*', default='********')
         self.options = self.params.get("options", default='')
         self.net_device_type = self.params.get("net_device_type", default='')
-        self.lpar = self.get_partition_name("Partition Name")
+        self.lpar = self.params.get("lpar", default='')
         if not self.lpar:
             self.cancel("LPAR Name not got from lparstat command")
-        self.lpar_ip = self.get_mcp_component("MNName")
+        self.lpar_ip = self.params.get("lpar_ip", default='')
         if not self.lpar_ip:
             self.cancel("LPAR IP not got from lsrsrc command")
         self.session = Session(self.hmc_ip, user=self.hmc_user,
