@@ -188,12 +188,13 @@ class LPM(Test):
             if "inoperative" in output:
                 self.fail("Failed to start the rsct and rsct_rm services")
         else:
-            self.peer_session = Session(self.lpar_ip, user = self.lpar_user, password = self.lpar_pwd)
-            if not self.peer_session.connect():
+            peer_session = Session(self.lpar_ip, user = self.lpar_user, password = self.lpar_pwd)
+            if not peer_session.connect():
                 self.cancel("failed connecting to peer lpar")
             for svc in ["rsct", "rsct_rm"]:
                 cmd = 'startsrc -g ' + svc
-                output = self.peer_session.cmd(cmd)
+                output = peer_session.cmd(cmd)
+            peer_session.quit()
 
     def is_RMC_active(self, server):
         '''
@@ -211,15 +212,31 @@ class LPM(Test):
         '''
         Start RMC services which is needed for LPM migration
         '''
-        for svc in ["-z", "-A", "-p"]:
-            process.run('/opt/rsct/bin/rmcctrl %s' %
-                        svc, shell=True, sudo=True)
-        if not wait.wait_for(self.is_RMC_active(server), timeout=60):
-            process.run(
-                '/usr/sbin/rsct/install/bin/recfgct', shell=True, sudo=True)
-            process.run('/opt/rsct/bin/rmcctrl -p', shell=True, sudo=True)
-            if not wait.wait_for(self.is_RMC_active(server), timeout=300):
-                self.fail("ERROR : RMC connection is down !!")
+        if not self.using_peer:
+            for svc in ["-z", "-A", "-p"]:
+                process.run('/opt/rsct/bin/rmcctrl %s' %
+                            svc, shell=True, sudo=True)
+            if not wait.wait_for(self.is_RMC_active(server), timeout=60):
+                process.run(
+                    '/usr/sbin/rsct/install/bin/recfgct', shell=True, sudo=True)
+                process.run('/opt/rsct/bin/rmcctrl -p', shell=True, sudo=True)
+                if not wait.wait_for(self.is_RMC_active(server), timeout=300):
+                    self.fail("ERROR : RMC connection is down !!")
+        else:
+            peer_session = Session(self.lpar_ip, user = self.lpar_user, password = self.lpar_pwd)
+            if not peer_session.connect():
+                self.cancel("failed connecting to peer lpar")
+            for svc in ["-z", "-A", "-p"]:
+                cmd = '/opt/rsct/bin/rmcctrl ' + svc
+                output = peer_session.cmd(cmd)
+            if not wait.wait_for(self.is_RMC_active(server), timeout=60):
+                cmd = '/usr/sbin/rsct/install/bin/recfgct'
+                output = peer_session.cmd(cmd)
+                cmd = '/opt/rsct/bin/rmcctrl -p'
+                output = peer_session(cmd)
+                if not wait.wait_for(self.is_RMC_active(server), timeout=300):
+                    self.fail("ERROR : RMC connection is down !!")
+            peer_session.quit()
 
     def install_packages(self):
         '''
