@@ -48,13 +48,27 @@ class LPM(Test):
         '''
         self.install_packages()
         self.using_peer = False
-        if self.params.get("lpar", default='') and self.params.get("lpar_ip", default=''):
+        if self.params.get("lpar", default='') and \
+                            self.params.get("lpar_ip", default=''):
             self.lpar = self.params.get("lpar", default='')
             self.lpar_ip = self.params.get("lpar_ip", default='')
             self.lpar_user = self.params.get("lpar_user", default='root')
-            self.lpar_pwd = self.params.get("lpar_pwd", "*", default='********')
-            self.server = self.lpar[0:self.lpar.find('-')]
+            self.lpar_pwd = self.params.get("lpar_pwd", "*", 
+                                            default='********')
+            self.peer_session = Session(self.lpar_ip, user = self.lpar_user, 
+                                        password = self.lpar_pwd)
+            if not self.peer_session.connect():
+                self.cancel("failed connecting to peer lpar")
             self.using_peer = True
+        else:
+            self.lpar = self.get_partition_name("Partition Name")
+            self.log.info("'lpar' parameter empty, migrating current LPAR")
+            if not self.lpar:
+                self.cancel("LPAR Name not got from lparstat command")
+            self.lpar_ip = self.get_mcp_component("MNName")
+            self.log.info("'lpar_ip' parameter empty, migrating current LPAR")
+            if not self.lpar_ip:
+                self.cancel("LPAR IP not got from lsrsrc command")
         self.rsct_service_start()
 
         self.hmc_ip = self.get_mcp_component("HMCIPAddr")
@@ -64,27 +78,17 @@ class LPM(Test):
         self.hmc_pwd = self.params.get("hmc_pwd", '*', default='********')
         self.options = self.params.get("options", default='')
         self.net_device_type = self.params.get("net_device_type", default='')
-        if not self.using_peer:
-            self.lpar = self.get_partition_name("Partition Name")
-            self.log.info("'lpar' parameter empty, migrating current LPAR")
-            if not self.lpar:
-                self.cancel("LPAR Name not got from lparstat command")
-            self.lpar_ip = self.get_mcp_component("MNName")
-            self.log.info("'lpar_ip' parameter empty, migrating current LPAR")
-            if not self.lpar_ip:
-                self.cancel("LPAR IP not got from lsrsrc command")
         self.session = Session(self.hmc_ip, user=self.hmc_user,
-                               password=self.hmc_pwd)
+                                password=self.hmc_pwd)
         if not self.session.connect():
             self.cancel("failed connecting to HMC")
         cmd = 'lssyscfg -r sys -F name'
         output = self.session.cmd(cmd)
-        if not self.using_peer: 
-            self.server = ''
-            for line in output.stdout_text.splitlines():
-                if line in self.lpar:
-                    self.server = line
-                    break
+        self.server = ''
+        for line in output.stdout_text.splitlines():
+            if line in self.lpar:
+                self.server = line
+                break
         if not self.server:
             self.cancel("Managed System not got")
 
@@ -175,26 +179,29 @@ class LPM(Test):
         Running rsct services which is necessary for Network
         virtualization tests
         '''
-        if not self.using_peer:
-            try:
-                for svc in ["rsct", "rsct_rm"]:
-                    process.run('startsrc -g %s' % svc, shell=True, sudo=True)
-            except CmdError as details:
-                self.log.debug(str(details))
-                self.fail("Starting service %s failed", svc)
+        try:
+            for svc in ["rsct", "rsct_rm"]:
+                cmd = 'startsrc -g %s' % svc
+                if not self.using_peer: process.run(cmd, shell=True, sudo=True)
+                if self.using_peer: output = self.peer_session.cmd(cmd)                        
+        except CmdError as details:
+            self.log.debug(str(details))
+            self.fail("Starting service %s failed", svc)
 
-            output = process.system_output("lssrc -a", ignore_status=True,
-                                            shell=True, sudo=True).decode("utf-8")
+        try:
+            cmd = "lssrc -a"
+            output = ""
+            if not self.using_peer: 
+                output = process.system_output(cmd, ignore_status=True,
+                                        shell=True, sudo=True).decode("utf-8")
+            if self.using_peer:
+                out = self.peer_session.cmd(cmd)
+                output = str(out.stdout)
             if "inoperative" in output:
                 self.fail("Failed to start the rsct and rsct_rm services")
-        else:
-            peer_session = Session(self.lpar_ip, user = self.lpar_user, password = self.lpar_pwd)
-            if not peer_session.connect():
-                self.cancel("failed connecting to peer lpar")
-            for svc in ["rsct", "rsct_rm"]:
-                cmd = 'startsrc -g ' + svc
-                output = peer_session.cmd(cmd)
-            peer_session.quit()
+        except CmdError as details:
+            self.log.debug(str(details))
+            self.fail("Command lssrc -a failed")
 
     def is_RMC_active(self, server):
         '''
@@ -212,31 +219,30 @@ class LPM(Test):
         '''
         Start RMC services which is needed for LPM migration
         '''
-        if not self.using_peer:
+        try:
             for svc in ["-z", "-A", "-p"]:
-                process.run('/opt/rsct/bin/rmcctrl %s' %
-                            svc, shell=True, sudo=True)
-            if not wait.wait_for(self.is_RMC_active(server), timeout=60):
-                process.run(
-                    '/usr/sbin/rsct/install/bin/recfgct', shell=True, sudo=True)
-                process.run('/opt/rsct/bin/rmcctrl -p', shell=True, sudo=True)
-                if not wait.wait_for(self.is_RMC_active(server), timeout=300):
-                    self.fail("ERROR : RMC connection is down !!")
-        else:
-            peer_session = Session(self.lpar_ip, user = self.lpar_user, password = self.lpar_pwd)
-            if not peer_session.connect():
-                self.cancel("failed connecting to peer lpar")
-            for svc in ["-z", "-A", "-p"]:
-                cmd = '/opt/rsct/bin/rmcctrl ' + svc
-                output = peer_session.cmd(cmd)
-            if not wait.wait_for(self.is_RMC_active(server), timeout=60):
-                cmd = '/usr/sbin/rsct/install/bin/recfgct'
-                output = peer_session.cmd(cmd)
-                cmd = '/opt/rsct/bin/rmcctrl -p'
-                output = peer_session(cmd)
-                if not wait.wait_for(self.is_RMC_active(server), timeout=300):
-                    self.fail("ERROR : RMC connection is down !!")
-            peer_session.quit()
+                cmd = '/opt/rsct/bin/rmcctrl %s' % svc
+                if not self.using_peer: process.run(cmd, shell=True, sudo=True) 
+                if self.using_peer: self.peer_session.cmd(cmd) 
+        except CmdError as details:
+            self.log.debug(str(details))
+            self.fail("Starting service %s failed", svc)
+
+        if not wait.wait_for(self.is_RMC_active(server), timeout=60):
+            try:
+                cmd1 = '/usr/sbin/rsct/install/bin/recfgct'
+                cmd2 = '/opt/rsct/bin/rmcctrl -p'
+                if not self.using_peer: 
+                    process.run(cmd1, shell=True, sudo=True) 
+                    process.run(cmd2, shell=True, sudo=True) 
+                if self.using_peer: 
+                    self.peer_session.cmd(cmd1) 
+                    self.peer_session.cmd(cmd2)
+            except CmdError as details:
+                self.log.debug(str(details))
+                self.fail("Command recfgct or rmcctrl has failed", svc)
+            if not wait.wait_for(self.is_RMC_active(server), timeout=300):
+                self.fail("ERROR : RMC connection is down !!")
 
     def install_packages(self):
         '''
@@ -374,3 +380,5 @@ class LPM(Test):
 
     def tearDown(self):
         self.session.quit()
+        if self.using_peer:
+            self.peer_session.quit()
