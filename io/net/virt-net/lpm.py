@@ -62,11 +62,9 @@ class LPM(Test):
             self.using_peer = True
         else:
             self.lpar = self.get_partition_name("Partition Name")
-            self.log.info("'lpar' parameter empty, migrating current LPAR")
             if not self.lpar:
                 self.cancel("LPAR Name not got from lparstat command")
             self.lpar_ip = self.get_mcp_component("MNName")
-            self.log.info("'lpar_ip' parameter empty, migrating current LPAR")
             if not self.lpar_ip:
                 self.cancel("LPAR IP not got from lsrsrc command")
         self.rsct_service_start()
@@ -183,7 +181,7 @@ class LPM(Test):
             for svc in ["rsct", "rsct_rm"]:
                 cmd = 'startsrc -g %s' % svc
                 if self.using_peer: 
-                    output = self.peer_session.cmd(cmd)
+                    self.peer_session.cmd(cmd)
                 else: 
                     process.run(cmd, shell=True, sudo=True) 
         except CmdError as details:
