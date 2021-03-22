@@ -79,7 +79,7 @@ class LPM(Test):
         self.options = self.params.get("options", default='')
         self.net_device_type = self.params.get("net_device_type", default='')
         self.session = Session(self.hmc_ip, user=self.hmc_user,
-                                password=self.hmc_pwd)
+                               password=self.hmc_pwd)
         if not self.session.connect():
             self.cancel("failed connecting to HMC")
         cmd = 'lssyscfg -r sys -F name'
@@ -182,8 +182,10 @@ class LPM(Test):
         try:
             for svc in ["rsct", "rsct_rm"]:
                 cmd = 'startsrc -g %s' % svc
-                if not self.using_peer: process.run(cmd, shell=True, sudo=True)
-                if self.using_peer: output = self.peer_session.cmd(cmd)                        
+                if self.using_peer: 
+                    output = self.peer_session.cmd(cmd)
+                else: 
+                    process.run(cmd, shell=True, sudo=True) 
         except CmdError as details:
             self.log.debug(str(details))
             self.fail("Starting service %s failed", svc)
@@ -191,12 +193,11 @@ class LPM(Test):
         try:
             cmd = "lssrc -a"
             output = ""
-            if not self.using_peer: 
+            if self.using_peer:
+                output = self.peer_session.cmd(cmd).stdout_text
+            else:
                 output = process.system_output(cmd, ignore_status=True,
                                         shell=True, sudo=True).decode("utf-8")
-            if self.using_peer:
-                out = self.peer_session.cmd(cmd)
-                output = str(out.stdout)
             if "inoperative" in output:
                 self.fail("Failed to start the rsct and rsct_rm services")
         except CmdError as details:
@@ -222,8 +223,10 @@ class LPM(Test):
         try:
             for svc in ["-z", "-A", "-p"]:
                 cmd = '/opt/rsct/bin/rmcctrl %s' % svc
-                if not self.using_peer: process.run(cmd, shell=True, sudo=True) 
-                if self.using_peer: self.peer_session.cmd(cmd) 
+                if self.using_peer:
+                    self.peer_session.cmd(cmd) 
+                else:
+                    process.run(cmd, shell=True, sudo=True) 
         except CmdError as details:
             self.log.debug(str(details))
             self.fail("Starting service %s failed", svc)
@@ -232,12 +235,12 @@ class LPM(Test):
             try:
                 cmd1 = '/usr/sbin/rsct/install/bin/recfgct'
                 cmd2 = '/opt/rsct/bin/rmcctrl -p'
-                if not self.using_peer: 
-                    process.run(cmd1, shell=True, sudo=True) 
-                    process.run(cmd2, shell=True, sudo=True) 
                 if self.using_peer: 
                     self.peer_session.cmd(cmd1) 
                     self.peer_session.cmd(cmd2)
+                else: 
+                    process.run(cmd1, shell=True, sudo=True) 
+                    process.run(cmd2, shell=True, sudo=True) 
             except CmdError as details:
                 self.log.debug(str(details))
                 self.fail("Command recfgct or rmcctrl has failed", svc)
