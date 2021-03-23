@@ -51,6 +51,7 @@ class LPM(Test):
         if self.params.get("lpar", default='') and \
                             self.params.get("lpar_ip", default=''):
             self.lpar = self.params.get("lpar", default='')
+            self.log.info("Migrating %s partition", self.lpar)
             self.lpar_ip = self.params.get("lpar_ip", default='')
             self.lpar_user = self.params.get("lpar_user", default='root')
             self.lpar_pwd = self.params.get("lpar_pwd", "*", 
