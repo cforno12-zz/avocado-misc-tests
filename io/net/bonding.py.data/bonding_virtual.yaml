@@ -1,8 +1,6 @@
 Test: !mux
     active-backup:
         bonding_mode: "1"
-    802.3ad:
-        bonding_mode: "4"
 bond_interfaces: ""
 host_ips: ""
 netmask: ""
