@@ -299,9 +299,8 @@ class LPM(Test):
                               self.remote_adapter_id[index],
                               self.remote_ports[index], self.bandwidth,
                               self.adapter_id[index], self.ports[index]]:
-                    l_cmd.append(param)
+                    l_cmd.append(param.strip("\n"))
                 cmd.append("/".join(l_cmd))
-
         return " -i \"vnic_mappings=\\\"%s\\\"\" " % ",".join(cmd)
 
     def check_dmesg_error(self):

@@ -1,13 +1,13 @@
-hmc_pwd:
-hmc_username:
-slot_num:
-vios_names:
-remote_server:
-remote_vios_names:
-sriov_adapters:
-sriov_ports:
-remote_sriov_adapters:
-remote_sriov_ports:
-bandwidth:
+hmc_pwd: "abc123"
+hmc_username: "hscroot"
+slot_num: "3"
+vios_names: "ltcbr33-vios1 ltcbr33-vios2" 
+remote_server: "ltcbr34"
+remote_vios_names: "ltcbr34-vios1 ltcbr34-vios2"
+sriov_adapters: "U78CA.001.CSS004F-P1-C6 U78CA.001.CSS004F-P1-C6"
+sriov_ports: "0 1"
+remote_sriov_adapters: "U78CA.001.CSS004Y-P1-C7 U78CA.001.CSS004Y-P1-C7"
+remote_sriov_ports: "0 1"
+bandwidth: "2"
 net_device_type: "vnic"
-options: "--vniccfg 2"
+options: ""
