@@ -309,7 +309,7 @@ class LPM(Test):
         """
         self.log.info("Gathering kernel errors if any")
         try:
-            dmesg.collect_errors_by_level()
+            dmesg.collect_errors_by_level(4)
         except Exception as exc:
             self.log.info(exc)
             self.fail("test failed,check dmesg log in debug log")
