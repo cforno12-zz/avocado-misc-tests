@@ -344,9 +344,8 @@ class LPM(Test):
                               self.remote_adapter_id[index],
                               self.remote_ports[index], self.bandwidth,
                               self.adapter_id[index], self.ports[index]]:
-                    l_cmd.append(param)
+                    l_cmd.append(param.strip("\n"))
                 cmd.append("/".join(l_cmd))
-
         return " -i \"vnic_mappings=\\\"%s\\\"\" " % ",".join(cmd)
 
     def check_dmesg_error(self):
@@ -355,7 +354,7 @@ class LPM(Test):
         """
         self.log.info("Gathering kernel errors if any")
         try:
-            dmesg.collect_errors_by_level()
+            dmesg.collect_errors_by_level(4)
         except Exception as exc:
             self.log.info(exc)
             self.fail("test failed,check dmesg log in debug log")
